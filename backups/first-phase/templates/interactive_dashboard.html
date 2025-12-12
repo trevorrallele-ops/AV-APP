@@ -13,32 +13,6 @@
         }
         .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
         .header { text-align: center; margin-bottom: 30px; }
-        .tabs {
-            display: flex;
-            background: rgba(255,255,255,0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            margin-bottom: 20px;
-            overflow: hidden;
-        }
-        .tab {
-            flex: 1;
-            padding: 15px 20px;
-            text-align: center;
-            cursor: pointer;
-            background: rgba(255,255,255,0.1);
-            border: none;
-            color: white;
-            font-weight: bold;
-            transition: all 0.3s ease;
-        }
-        .tab.active {
-            background: rgba(255,255,255,0.3);
-            color: #333;
-        }
-        .tab:hover {
-            background: rgba(255,255,255,0.2);
-        }
         .controls {
             background: rgba(255,255,255,0.1);
             backdrop-filter: blur(10px);
@@ -88,13 +62,15 @@
             <p>Real-time stock data with interactive controls</p>
         </div>
         
-        <div class="tabs">
-            <button class="tab active" onclick="switchTab('stocks')">📈 Stocks</button>
-            <button class="tab" onclick="switchTab('forex')">💱 Forex</button>
-            <button class="tab" onclick="switchTab('commodities')">🛢️ Commodities</button>
-        </div>
-        
         <div class="controls">
+            <div class="control-group">
+                <label>Data Type:</label>
+                <select id="dataType" onchange="updateSymbolOptions()">
+                    <option value="stocks">Stocks</option>
+                    <option value="forex">Forex</option>
+                    <option value="commodities">Commodities</option>
+                </select>
+            </div>
             <div class="control-group">
                 <label>Symbol:</label>
                 <select id="symbol">
@@ -139,33 +115,19 @@
     <script>
         let currentData = null;
         let isDark = false;
-        let currentDataType = 'stocks';
 
         // Initialize with default chart
         window.onload = function() {
-            updateSymbolOptions();
             updateChart();
         };
-        
-        function switchTab(dataType) {
-            // Update active tab
-            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-            event.target.classList.add('active');
-            
-            // Update current data type
-            currentDataType = dataType;
-            
-            // Update symbol options and chart
-            updateSymbolOptions();
-            updateChart();
-        }
 
         function updateSymbolOptions() {
+            const dataType = document.getElementById('dataType').value;
             const symbolSelect = document.getElementById('symbol');
             
             symbolSelect.innerHTML = '';
             
-            if (currentDataType === 'stocks') {
+            if (dataType === 'stocks') {
                 const stocks = [
                     {value: 'AAPL', text: 'Apple (AAPL)'},
                     {value: 'GOOGL', text: 'Google (GOOGL)'},
@@ -179,7 +141,7 @@
                     option.textContent = stock.text;
                     symbolSelect.appendChild(option);
                 });
-            } else if (currentDataType === 'forex') {
+            } else if (dataType === 'forex') {
                 const pairs = [
                     {value: 'EUR/USD', text: 'EUR/USD'},
                     {value: 'GBP/USD', text: 'GBP/USD'},
@@ -193,14 +155,13 @@
                     option.textContent = pair.text;
                     symbolSelect.appendChild(option);
                 });
-            } else if (currentDataType === 'commodities') {
+            } else if (dataType === 'commodities') {
                 const commodities = [
                     {value: 'WTI', text: 'Crude Oil (WTI)'},
                     {value: 'BRENT', text: 'Brent Oil'},
                     {value: 'NATURAL_GAS', text: 'Natural Gas'},
                     {value: 'COPPER', text: 'Copper'},
-                    {value: 'ALUMINUM', text: 'Aluminum'},
-                    {value: 'GOLD', text: 'Gold'}
+                    {value: 'ALUMINUM', text: 'Aluminum'}
                 ];
                 commodities.forEach(commodity => {
                     const option = document.createElement('option');
@@ -212,6 +173,7 @@
         }
 
         async function updateChart() {
+            const dataType = document.getElementById('dataType').value;
             const symbol = document.getElementById('symbol').value;
             const chartType = document.getElementById('chartType').value;
             const timeRange = document.getElementById('timeRange').value;
@@ -220,19 +182,19 @@
             document.getElementById('volumeChart').innerHTML = '<div class="loading">Loading volume data...</div>';
             
             try {
-                const response = await fetch(`/api/data?type=${currentDataType}&symbol=${symbol}&range=${timeRange}`);
+                const response = await fetch(`/api/data?type=${dataType}&symbol=${symbol}&range=${timeRange}`);
                 const data = await response.json();
                 
                 if (data.error) {
                     throw new Error(data.error);
+                }
+                
+                currentData = data;
+                renderChart(data, chartType, dataType);
+                if (dataType === 'stocks') {
+                    renderVolumeChart(data);
                 } else {
-                    currentData = data;
-                    renderChart(data, chartType, currentDataType);
-                    if (currentDataType === 'stocks') {
-                        renderVolumeChart(data);
-                    } else {
-                        document.getElementById('volumeChart').innerHTML = '';
-                    }
+                    document.getElementById('volumeChart').innerHTML = '';
                 }
                 
             } catch (error) {
@@ -326,8 +288,9 @@
             btn.textContent = isDark ? '☀️ Light Mode' : '🌙 Dark Mode';
             
             if (currentData) {
-                renderChart(currentData, document.getElementById('chartType').value, currentDataType);
-                if (currentDataType === 'stocks') {
+                const dataType = document.getElementById('dataType').value;
+                renderChart(currentData, document.getElementById('chartType').value, dataType);
+                if (dataType === 'stocks') {
                     renderVolumeChart(currentData);
                 }
             }

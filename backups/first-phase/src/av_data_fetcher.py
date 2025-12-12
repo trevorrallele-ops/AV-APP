@@ -14,23 +14,16 @@ class AVDataFetcher:
             "apikey": self.api_key,
             "outputsize": "compact"
         }
-        response = requests.get(self.base_url, params=params, timeout=30)
-        if response.status_code != 200:
-            raise ValueError(f"API request failed with status {response.status_code}")
-        
-        try:
-            data = response.json()
-        except ValueError as e:
-            raise ValueError(f"Invalid JSON response: {e}")
+        response = requests.get(self.base_url, params=params)
+        data = response.json()
         
         if "Time Series (Daily)" not in data:
             raise ValueError(f"Error fetching data: {data}")
         
         df = pd.DataFrame(data["Time Series (Daily)"]).T
-        df.index = pd.to_datetime(df.index, errors='coerce')
-        df = df.dropna()
-        df.columns = [col.split('. ')[1] if '. ' in col else col for col in df.columns]
+        df.index = pd.to_datetime(df.index)
         df = df.astype(float)
+        df.columns = ["open", "high", "low", "close", "volume"]
         return df.sort_index()
     
     def fetch_forex_data(self, from_symbol="EUR", to_symbol="USD"):
@@ -41,52 +34,55 @@ class AVDataFetcher:
             "apikey": self.api_key,
             "outputsize": "compact"
         }
-        response = requests.get(self.base_url, params=params, timeout=30)
-        if response.status_code != 200:
-            raise ValueError(f"API request failed with status {response.status_code}")
+        response = requests.get(self.base_url, params=params)
+        data = response.json()
         
-        try:
-            data = response.json()
-        except ValueError as e:
-            raise ValueError(f"Invalid JSON response: {e}")
-        
-        if "Time Series FX (Daily)" not in data:
+        if "Time Series (FX Daily)" not in data:
             raise ValueError(f"Error fetching forex data: {data}")
         
-        df = pd.DataFrame(data["Time Series FX (Daily)"]).T
-        df.index = pd.to_datetime(df.index, errors='coerce')
-        df = df.dropna()
-        # Rename columns to remove numbers and periods
-        df.columns = [col.split('. ', 1)[1] if '. ' in col else col for col in df.columns]
+        df = pd.DataFrame(data["Time Series (FX Daily)"]).T
+        df.index = pd.to_datetime(df.index)
         df = df.astype(float)
+        df.columns = ["open", "high", "low", "close"]
         df['volume'] = 0  # Forex doesn't have volume
         return df.sort_index()
     
     def fetch_commodity_data(self, function="WTI"):
-        # Use stock data for commodities as Alpha Vantage commodity API is unreliable
-        commodity_symbols = {
-            'WTI': 'USO',  # Oil ETF
-            'GOLD': 'GLD',  # Gold ETF
-            'BRENT': 'BNO',  # Brent Oil ETF
-            'NATURAL_GAS': 'UNG',  # Natural Gas ETF
-            'COPPER': 'CPER',  # Copper ETF
-            'ALUMINUM': 'JJU'  # Aluminum ETF
+        params = {
+            "function": function,
+            "interval": "daily",
+            "apikey": self.api_key
         }
+        response = requests.get(self.base_url, params=params)
+        data = response.json()
         
-        symbol = commodity_symbols.get(function, 'USO')
-        return self.fetch_daily_data(symbol)
+        data_key = list(data.keys())[1] if len(data.keys()) > 1 else None
+        if not data_key or data_key not in data:
+            raise ValueError(f"Error fetching commodity data: {data}")
+        
+        df = pd.DataFrame(data[data_key]).T
+        df.index = pd.to_datetime(df.index)
+        df = df.astype(float)
+        df.columns = ["value"]
+        # Create OHLC from value for consistency
+        df['open'] = df['value']
+        df['high'] = df['value']
+        df['low'] = df['value']
+        df['close'] = df['value']
+        df['volume'] = 0
+        return df.sort_index()
     
     def save_to_csv(self, df, filename="../data-storage/stock_data.csv"):
         df.to_csv(filename)
         print(f"Data saved to {filename}")
     
-    def save_to_db(self, df, db_name="database/stock_data.db", table_name="daily_prices"):
+    def save_to_db(self, df, db_name="../database/stock_data.db", table_name="daily_prices"):
         conn = sqlite3.connect(db_name)
         df.to_sql(table_name, conn, if_exists="replace", index=True)
         conn.close()
         print(f"Data saved to database {db_name}")
     
-    def load_from_db(self, db_name="database/stock_data.db", table_name="daily_prices"):
+    def load_from_db(self, db_name="../database/stock_data.db", table_name="daily_prices"):
         try:
             conn = sqlite3.connect(db_name)
             df = pd.read_sql_query(f"SELECT * FROM {table_name}", conn, index_col=0, parse_dates=True)

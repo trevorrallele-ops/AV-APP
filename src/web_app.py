@@ -1,35 +1,13 @@
 from flask import Flask, render_template, jsonify, request
 from av_data_fetcher import AVDataFetcher
 import pandas as pd
+import json
 
 app = Flask(__name__, template_folder='../templates', static_folder='../static')
 
 @app.route('/')
 def index():
-    API_KEY = "74M88OXCGWTNUIV9"
-    
-    try:
-        fetcher = AVDataFetcher(API_KEY)
-        
-        # Try to load from database first
-        df = fetcher.load_from_db()
-        
-        if df is None or df.empty:
-            # Fetch new data if no stored data
-            df = fetcher.fetch_daily_data("AAPL")
-            fetcher.save_to_csv(df)
-            fetcher.save_to_db(df)
-        
-
-        
-
-        
-        return render_template('index.html')
-    except Exception as e:
-        error_msg = str(e).lower()
-        if "api call frequency" in error_msg or "premium" in error_msg or "invalid api key" in error_msg:
-            return "401 Unauthorized: API Key limit exceeded or invalid", 401
-        return f"Service temporarily unavailable: {str(e)}", 503
+    return render_template('index.html')
 
 
 
@@ -37,11 +15,10 @@ def index():
 def dashboard():
     return render_template('interactive_dashboard.html')
 
-@app.route('/api/data')
-def api_data():
+@app.route('/api/fetch-data')
+def fetch_data():
     data_type = request.args.get('type', 'stocks')
     symbol = request.args.get('symbol', 'AAPL')
-    time_range = request.args.get('range', '1Y')
     
     API_KEY = "74M88OXCGWTNUIV9"
     
@@ -50,50 +27,64 @@ def api_data():
         
         # Determine database path
         if data_type == 'stocks':
-            db_path = "../database/stock_data.db"
+            db_path = "database/stock_data.db"
         elif data_type == 'forex':
-            db_path = "../database/forex_data.db"
+            db_path = "database/forex_data.db"
         else:  # commodities
-            db_path = "../database/commodity_data.db"
+            db_path = "database/commodity_data.db"
         
-        # Try to load from database first
-        df = fetcher.load_from_db(db_path, symbol.replace('/', '_'))
+        table_name = symbol.replace('/', '_')
         
-        if df is None or df.empty:
-            # Fetch new data
-            if data_type == 'stocks':
-                df = fetcher.fetch_daily_data(symbol)
-            elif data_type == 'forex':
-                from_symbol, to_symbol = symbol.split('/')
-                df = fetcher.fetch_forex_data(from_symbol, to_symbol)
-            else:  # commodities
-                df = fetcher.fetch_commodity_data(symbol)
-            
-            # Save to database
-            fetcher.save_to_db(df, db_path, symbol.replace('/', '_'))
+        # Fetch new data
+        if data_type == 'stocks':
+            df = fetcher.fetch_daily_data(symbol)
+        elif data_type == 'forex':
+            from_symbol, to_symbol = symbol.split('/')
+            df = fetcher.fetch_forex_data(from_symbol, to_symbol)
+        else:  # commodities
+            df = fetcher.fetch_commodity_data(symbol)
+        
+        # Save to database
+        fetcher.save_to_db(df, db_path, table_name)
+        
+        return jsonify({'success': f'Data fetched and cached for {symbol}'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/data')
+def api_data():
+    data_type = request.args.get('type', 'stocks')
+    symbol = request.args.get('symbol', 'AAPL')
+    time_range = request.args.get('range', '1Y')
+    
+    try:
+        # Load from JSON cache
+        with open('market_data.json', 'r') as f:
+            cache_data = json.load(f)
+        
+        table_name = symbol.replace('/', '_')
+        
+        if data_type not in cache_data or table_name not in cache_data[data_type]:
+            return jsonify({'error': f'No cached data for {symbol}'}), 404
+        
+        data = cache_data[data_type][table_name]
         
         # Filter data based on time range
-        if time_range == '1M':
-            df = df.tail(30)
-        elif time_range == '3M':
-            df = df.tail(90)
-        elif time_range == '6M':
-            df = df.tail(180)
-        elif time_range == '1Y':
-            df = df.tail(365)
-        elif time_range == '2Y':
-            df = df.tail(730)
+        range_map = {'1M': 30, '3M': 90, '6M': 180, '1Y': 365, '2Y': 730}
+        limit = range_map.get(time_range, 365)
         
-        return jsonify({
-            'dates': df.index.strftime('%Y-%m-%d').tolist(),
+        filtered_data = {
+            'dates': data['dates'][-limit:],
             'prices': {
-                'open': df['open'].tolist(),
-                'high': df['high'].tolist(),
-                'low': df['low'].tolist(),
-                'close': df['close'].tolist(),
-                'volume': df['volume'].tolist()
+                'open': data['prices']['open'][-limit:],
+                'high': data['prices']['high'][-limit:],
+                'low': data['prices']['low'][-limit:],
+                'close': data['prices']['close'][-limit:],
+                'volume': data['prices']['volume'][-limit:]
             }
-        })
+        }
+        
+        return jsonify(filtered_data)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
