@@ -11,6 +11,10 @@
             min-height: 100vh;
             color: white;
             padding: 20px;
+            transition: all 0.3s ease;
+        }
+        body.dark {
+            background: linear-gradient(135deg, #232526 0%, #414345 100%);
         }
         .container { max-width: 1400px; margin: 0 auto; }
         .header { text-align: center; margin-bottom: 30px; }
@@ -122,6 +126,22 @@
             <p>Comprehensive analysis across all market data</p>
             <a href="/" class="nav-btn">🏠 Back to Main</a>
             <a href="/dashboard" class="nav-btn">📈 Dashboard</a>
+            <button onclick="toggleTheme()" class="nav-btn">🌙 Dark Mode</button>
+        </div>
+        
+        <div class="chart-container">
+            <h2>⚙️ Admin Settings</h2>
+            <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap; justify-content: center;">
+                <div>
+                    <label>Starting Capital: $</label>
+                    <input type="number" id="startingCapital" value="10000" style="padding: 8px; border: none; border-radius: 5px; width: 120px;">
+                </div>
+                <div>
+                    <label>Risk Per Trade: $</label>
+                    <input type="number" id="riskPerTrade" value="100" style="padding: 8px; border: none; border-radius: 5px; width: 120px;">
+                </div>
+                <button onclick="recalculateResults()" style="padding: 10px 20px; background: #ff6b6b; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">🔄 Recalculate</button>
+            </div>
         </div>
         
         <div class="summary-stats" id="summaryStats">
@@ -186,6 +206,8 @@
             let totalWins = 0;
             let bestSymbol = '';
             let bestR = -999;
+            let totalDollarReturn = 0;
+            let totalStartingCapital = 0;
 
             for (const [dataType, symbols] of Object.entries(backtestData)) {
                 for (const [symbol, result] of Object.entries(symbols)) {
@@ -193,6 +215,12 @@
                     totalTrades += summary.num_trades;
                     totalR += summary.avg_outcome_R * summary.num_trades;
                     totalWins += summary.win_rate_pos_R * summary.num_trades;
+                    
+                    // Use recalculated values if available
+                    if (result.recalculated) {
+                        totalDollarReturn += result.recalculated.total_return;
+                        totalStartingCapital += result.recalculated.starting_capital;
+                    }
                     
                     if (summary.avg_outcome_R > bestR) {
                         bestR = summary.avg_outcome_R;
@@ -203,6 +231,7 @@
 
             const avgR = totalTrades > 0 ? totalR / totalTrades : 0;
             const avgWinRate = totalTrades > 0 ? totalWins / totalTrades : 0;
+            const showDollar = totalStartingCapital > 0;
 
             document.getElementById('summaryStats').innerHTML = `
                 <div class="stat-card">
@@ -213,6 +242,12 @@
                     <div class="stat-value ${avgR >= 0 ? 'positive' : 'negative'}">${avgR.toFixed(2)}R</div>
                     <div class="stat-label">Average Return</div>
                 </div>
+                ${showDollar ? `
+                <div class="stat-card">
+                    <div class="stat-value ${totalDollarReturn >= 0 ? 'positive' : 'negative'}">$${Math.abs(totalDollarReturn).toLocaleString()}</div>
+                    <div class="stat-label">${totalDollarReturn >= 0 ? 'Total Profit' : 'Total Loss'}</div>
+                </div>
+                ` : ''}
                 <div class="stat-card">
                     <div class="stat-value">${(avgWinRate * 100).toFixed(1)}%</div>
                     <div class="stat-label">Overall Win Rate</div>
@@ -326,8 +361,55 @@
             
             Plotly.newPlot('winRateChart', [trace], layout, {responsive: true});
         }
+        
+        function toggleTheme() {
+            document.body.classList.toggle('dark');
+            const btn = document.querySelector('button[onclick="toggleTheme()"]');
+            btn.textContent = document.body.classList.contains('dark') ? '☀️ Light Mode' : '🌙 Dark Mode';
+        }
+        
+        function recalculateResults() {
+            const startingCapital = parseFloat(document.getElementById('startingCapital').value) || 10000;
+            const riskPerTrade = parseFloat(document.getElementById('riskPerTrade').value) || 100;
+            
+            // Recalculate all metrics with new parameters
+            for (const [dataType, symbols] of Object.entries(backtestData)) {
+                for (const [symbol, result] of Object.entries(symbols)) {
+                    const trades = result.trades;
+                    let totalReturn = 0;
+                    
+                    for (const trade of trades) {
+                        totalReturn += trade.outcome_R * riskPerTrade;
+                    }
+                    
+                    // Update the result object
+                    result.recalculated = {
+                        starting_capital: startingCapital,
+                        risk_per_trade: riskPerTrade,
+                        total_return: totalReturn,
+                        final_capital: startingCapital + totalReturn,
+                        roi_percent: ((startingCapital + totalReturn - startingCapital) / startingCapital) * 100
+                    };
+                }
+            }
+            
+            // Re-render all components with new data
+            renderSummaryStats();
+            renderResultsGrid();
+            renderPerformanceChart();
+            renderWinRateChart();
+        }
 
         function showDetails(dataType, symbol) {
+            // Get current admin settings
+            const startingCapital = document.getElementById('startingCapital').value || 10000;
+            const riskPerTrade = document.getElementById('riskPerTrade').value || 100;
+            
+            // Navigate to detailed page with admin settings
+            window.location.href = `/backtest/${dataType}/${symbol}?capital=${startingCapital}&risk=${riskPerTrade}`;
+        }
+        
+        function showDetailsOld(dataType, symbol) {
             const result = backtestData[dataType][symbol];
             const trades = result.trades;
             const summary = result.summary;

@@ -19,6 +19,59 @@ def dashboard():
 def backtests():
     return render_template('backtest_results.html')
 
+@app.route('/backtest/<data_type>/<symbol>')
+def backtest_detail(data_type, symbol):
+    return render_template('backtest_detail.html', data_type=data_type, symbol=symbol)
+
+@app.route('/api/backtest-detail/<data_type>/<symbol>')
+def api_backtest_detail(data_type, symbol):
+    try:
+        with open('backtest_results.json', 'r') as f:
+            results = json.load(f)
+        
+        with open('market_data.json', 'r') as f:
+            market_data = json.load(f)
+        
+        if data_type not in results or symbol not in results[data_type]:
+            return jsonify({'error': 'Symbol not found'}), 404
+        
+        backtest_result = results[data_type][symbol]
+        price_data = market_data[data_type][symbol]
+        
+        # Get admin settings from query parameters
+        risk_per_trade = float(request.args.get('risk', 100))
+        starting_capital = float(request.args.get('capital', 10000))
+        
+        trades = backtest_result['trades']
+        equity_curve = [starting_capital]
+        total_invested = 0
+        total_return = 0
+        
+        for trade in trades:
+            pnl = trade['outcome_R'] * risk_per_trade
+            total_return += pnl
+            equity_curve.append(equity_curve[-1] + pnl)
+            total_invested += risk_per_trade
+        
+        final_capital = equity_curve[-1] if equity_curve else starting_capital
+        roi_percent = ((final_capital - starting_capital) / starting_capital) * 100
+        
+        return jsonify({
+            'backtest': backtest_result,
+            'price_data': price_data,
+            'investment_metrics': {
+                'starting_capital': starting_capital,
+                'risk_per_trade': risk_per_trade,
+                'total_invested': total_invested,
+                'total_return': total_return,
+                'final_capital': final_capital,
+                'roi_percent': roi_percent,
+                'equity_curve': equity_curve
+            }
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/backtest-results')
 def api_backtest_results():
     try:

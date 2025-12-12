@@ -21,15 +21,27 @@
 **Location**: `backups/phase-three/`
 **Features**: Current stable state
 
+## Phase Four ✅
+**Location**: `backups/phase-four/`
+**Features**: Enhanced Trading Analysis Dashboard
+- Clickable metrics cards with detailed trade analysis
+- SMA crossover trading strategy implementation
+- Volume spike detection and analysis
+- Real-time P&L tracking and win rate calculations
+- Advanced modal system for deep-dive trade details
+
 ## Current Phase 🚧
 **Status**: Active Development
-**Based on**: Phase Three
+**Based on**: Phase Four
 **Next Steps**: Ready for new features or modifications
 
 ---
 
 ### How to Revert:
 ```bash
+# To revert to Phase Four:
+cp -r backups/phase-four/* .
+
 # To revert to Phase Three:
 cp -r backups/phase-three/* .
 
