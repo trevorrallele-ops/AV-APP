@@ -9,6 +9,10 @@
             background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
             min-height: 100vh;
             color: white;
+            transition: all 0.3s ease;
+        }
+        body.dark {
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%);
         }
         .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
         .header { text-align: center; margin-bottom: 30px; }
@@ -85,7 +89,11 @@
         <div class="header">
             <h1>📊 Trading Signals</h1>
             <p>Real-time copy trading signals with technical analysis</p>
-            <button class="refresh-btn" onclick="refreshSignals()">🔄 Refresh Signals</button>
+            <div style="display: flex; gap: 15px; justify-content: center; margin-top: 20px;">
+                <button onclick="window.location.href='/'" style="padding: 12px 24px; background: #6c757d; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">🏠 Back to Main</button>
+                <button class="refresh-btn" onclick="refreshSignals()">🔄 Refresh Signals</button>
+                <button id="themeToggle" onclick="toggleTheme()" style="padding: 12px 24px; background: rgba(255,255,255,0.2); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">🌙 Dark Mode</button>
+            </div>
         </div>
         
         <div class="filters">
@@ -94,6 +102,7 @@
             <button class="filter-btn" onclick="filterSignals('sell')">Sell Signals</button>
             <button class="filter-btn" onclick="filterSignals('stocks')">Stocks</button>
             <button class="filter-btn" onclick="filterSignals('forex')">Forex</button>
+            <button class="filter-btn" onclick="filterSignals('custom')">My Strategies</button>
         </div>
         
         <div id="signalsContainer">
@@ -128,6 +137,14 @@
             return signals.sort((a, b) => b.confidence - a.confidence);
         }
         
+        function getMarketSession(date) {
+            const hour = date.getHours();
+            if (hour >= 9 && hour < 16) return 'US Session';
+            if (hour >= 2 && hour < 11) return 'London Session';
+            if (hour >= 21 || hour < 6) return 'Tokyo Session';
+            return 'Pre-Market';
+        }
+        
         function generateSignalForSymbol(symbol, type) {
             const signals = ['BUY', 'SELL', 'HOLD'];
             const signal = signals[Math.floor(Math.random() * signals.length)];
@@ -149,10 +166,36 @@
                 (parseFloat(currentPrice) * (1 + Math.random() * 0.05)).toFixed(type === 'forex' ? 4 : 2);
             
             const timeframe = ['1H', '4H', '1D', '1W'][Math.floor(Math.random() * 4)];
-            const indicators = [
-                'RSI Oversold', 'MACD Bullish Cross', 'Support Bounce', 'Breakout Pattern',
-                'Volume Spike', 'Moving Average Cross', 'Fibonacci Retracement', 'Trend Reversal'
+            const strategies = [
+                { name: 'SMA Crossover', indicator: 'Moving Average Cross', description: '20/50 SMA crossover strategy' },
+                { name: 'RSI Mean Reversion', indicator: 'RSI Oversold', description: 'RSI oversold/overbought levels' },
+                { name: 'MACD Momentum', indicator: 'MACD Bullish Cross', description: 'MACD signal line crossover' },
+                { name: 'Support/Resistance', indicator: 'Support Bounce', description: 'Key level bounce strategy' },
+                { name: 'Breakout Trading', indicator: 'Breakout Pattern', description: 'Price breakout confirmation' },
+                { name: 'Volume Analysis', indicator: 'Volume Spike', description: 'Volume-based momentum' },
+                { name: 'Fibonacci Strategy', indicator: 'Fibonacci Retracement', description: 'Fib retracement levels' },
+                { name: 'Trend Reversal', indicator: 'Trend Reversal', description: 'Reversal pattern detection' },
+                // Your Custom Strategies
+                { name: 'OB Refined Strategy', indicator: 'Order Block Analysis', description: 'Smart money order block detection' },
+                { name: 'Multi-Asset Momentum', indicator: 'Cross-Asset Signal', description: 'Multi-timeframe momentum analysis' },
+                { name: 'Volume Profile Strategy', indicator: 'Volume Profile', description: 'High volume node breakout' },
+                { name: 'Market Structure Break', indicator: 'Structure Break', description: 'Market structure shift detection' },
+                { name: 'Liquidity Hunt Strategy', indicator: 'Liquidity Sweep', description: 'Stop hunt and reversal pattern' },
+                { name: 'Smart Money Concepts', indicator: 'SMC Analysis', description: 'Institutional flow analysis' },
+                { name: 'Fair Value Gap', indicator: 'FVG Pattern', description: 'Imbalance gap trading' },
+                { name: 'Supply/Demand Zones', indicator: 'S&D Zone', description: 'Fresh supply/demand levels' }
             ];
+            
+            const selectedStrategy = strategies[Math.floor(Math.random() * strategies.length)];
+            
+            // Calculate trade timing
+            const now = new Date();
+            const tradeDate = new Date(now.getTime() + Math.random() * 24 * 60 * 60 * 1000); // Within 24 hours
+            const expiryHours = timeframe === '1H' ? 2 : timeframe === '4H' ? 8 : timeframe === '1D' ? 24 : 168;
+            const expiryDate = new Date(tradeDate.getTime() + expiryHours * 60 * 60 * 1000);
+            
+            const marketSession = getMarketSession(tradeDate);
+            const urgency = Math.random() > 0.7 ? 'HIGH' : Math.random() > 0.4 ? 'MEDIUM' : 'LOW';
             
             return {
                 symbol,
@@ -163,10 +206,27 @@
                 targetPrice: type === 'forex' ? targetPrice : `$${targetPrice}`,
                 stopLoss: type === 'forex' ? stopLoss : `$${stopLoss}`,
                 timeframe,
-                indicator: indicators[Math.floor(Math.random() * indicators.length)],
+                strategy: selectedStrategy.name,
+                indicator: selectedStrategy.indicator,
+                strategyDesc: selectedStrategy.description,
                 timestamp: new Date().toLocaleTimeString(),
+                tradeDate: tradeDate.toLocaleDateString(),
+                tradeTime: tradeDate.toLocaleTimeString(),
+                expiryDate: expiryDate.toLocaleDateString(),
+                expiryTime: expiryDate.toLocaleTimeString(),
+                marketSession,
+                urgency,
+                validFor: `${expiryHours}h`,
                 riskReward: ((Math.abs(parseFloat(targetPrice) - parseFloat(currentPrice)) / 
-                            Math.abs(parseFloat(currentPrice) - parseFloat(stopLoss)))).toFixed(1)
+                            Math.abs(parseFloat(currentPrice) - parseFloat(stopLoss)))).toFixed(1),
+                isCustomStrategy: selectedStrategy.name.includes('OB Refined') || 
+                                selectedStrategy.name.includes('Multi-Asset') || 
+                                selectedStrategy.name.includes('Volume Profile') || 
+                                selectedStrategy.name.includes('Market Structure') || 
+                                selectedStrategy.name.includes('Liquidity Hunt') || 
+                                selectedStrategy.name.includes('Smart Money') || 
+                                selectedStrategy.name.includes('Fair Value') || 
+                                selectedStrategy.name.includes('Supply/Demand')
             };
         }
         
@@ -206,8 +266,35 @@
                             <div class="detail-value">1:${signal.riskReward}</div>
                         </div>
                         <div class="detail-item">
+                            <div class="detail-label">Strategy</div>
+                            <div class="detail-value">
+                                ${signal.strategy}
+                                ${signal.isCustomStrategy ? '<span style="background: #ff6b6b; color: white; padding: 2px 8px; border-radius: 10px; font-size: 10px; margin-left: 5px;">CUSTOM</span>' : ''}
+                            </div>
+                        </div>
+                        <div class="detail-item">
                             <div class="detail-label">Indicator</div>
                             <div class="detail-value">${signal.indicator}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Trade Date</div>
+                            <div class="detail-value">${signal.tradeDate}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Trade Time</div>
+                            <div class="detail-value">${signal.tradeTime}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Valid Until</div>
+                            <div class="detail-value">${signal.expiryDate} ${signal.expiryTime}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Market Session</div>
+                            <div class="detail-value">${signal.marketSession}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Urgency</div>
+                            <div class="detail-value" style="color: ${signal.urgency === 'HIGH' ? '#ff4444' : signal.urgency === 'MEDIUM' ? '#ffaa00' : '#44ff44'}">${signal.urgency}</div>
                         </div>
                         <div class="detail-item">
                             <div class="detail-label">Confidence</div>
@@ -250,6 +337,8 @@
                 filteredSignals = allSignals.filter(s => s.type === 'stock');
             } else if (filter === 'forex') {
                 filteredSignals = allSignals.filter(s => s.type === 'forex');
+            } else if (filter === 'custom') {
+                filteredSignals = allSignals.filter(s => s.isCustomStrategy);
             }
             
             renderSignals(filteredSignals);
@@ -261,7 +350,11 @@
         }
         
         function copySignal(symbol, signal, currentPrice, targetPrice, stopLoss, confidence) {
-            const signalText = `🚀 COPY TRADING SIGNAL
+            // Find the signal data to get timing info
+            const signalData = allSignals.find(s => s.symbol === symbol && s.signal === signal);
+            
+            const customBadge = signalData?.isCustomStrategy ? ' [CUSTOM STRATEGY]' : '';
+            const signalText = `🚀 COPY TRADING SIGNAL${customBadge}
 
 📊 Symbol: ${symbol}
 🟢 Action: ${signal}
@@ -270,9 +363,19 @@
 🛑 Stop Loss: ${stopLoss}
 📈 Confidence: ${confidence}%
 
-⏰ Time: ${new Date().toLocaleString()}
+🎨 Strategy: ${signalData?.strategy || 'Technical Analysis'}${customBadge}
+📉 Indicator: ${signalData?.indicator || 'Multiple'}
+📝 Method: ${signalData?.strategyDesc || 'Advanced technical analysis'}
 
-#CopyTrading #${symbol} #${signal}`;
+📅 Trade Date: ${signalData?.tradeDate || 'Today'}
+⏰ Trade Time: ${signalData?.tradeTime || 'Now'}
+⏳ Valid Until: ${signalData?.expiryDate || 'EOD'} ${signalData?.expiryTime || ''}
+🌍 Market: ${signalData?.marketSession || 'Current'}
+⚡ Urgency: ${signalData?.urgency || 'MEDIUM'}
+
+📊 Generated: ${new Date().toLocaleString()}
+
+#CopyTrading #${symbol} #${signal} ${signalData?.isCustomStrategy ? '#CustomStrategy' : ''}`;
             
             navigator.clipboard.writeText(signalText).then(() => {
                 showNotification('✅ Signal copied to clipboard!');
@@ -334,8 +437,30 @@ Time: ${new Date().toLocaleTimeString()}`;
         `;
         document.head.appendChild(style);
         
+        function toggleTheme() {
+            const body = document.body;
+            const btn = document.getElementById('themeToggle');
+            
+            if (body.classList.contains('dark')) {
+                body.classList.remove('dark');
+                btn.textContent = '🌙 Dark Mode';
+                localStorage.setItem('tradingSignalsTheme', 'light');
+            } else {
+                body.classList.add('dark');
+                btn.textContent = '☀️ Light Mode';
+                localStorage.setItem('tradingSignalsTheme', 'dark');
+            }
+        }
+        
         // Initialize
         window.onload = function() {
+            // Load saved theme
+            const savedTheme = localStorage.getItem('tradingSignalsTheme');
+            if (savedTheme === 'dark') {
+                document.body.classList.add('dark');
+                document.getElementById('themeToggle').textContent = '☀️ Light Mode';
+            }
+            
             refreshSignals();
             
             // Auto-refresh every 30 seconds
