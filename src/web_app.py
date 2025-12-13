@@ -19,6 +19,10 @@ def dashboard():
 def backtests():
     return render_template('backtest_results.html')
 
+@app.route('/signals')
+def trading_signals():
+    return render_template('trading_signals.html')
+
 @app.route('/backtest/<data_type>/<symbol>')
 def backtest_detail(data_type, symbol):
     return render_template('backtest_detail.html', data_type=data_type, symbol=symbol)

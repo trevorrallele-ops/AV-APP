@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Trading Signals - Copy Trading</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .signal-card {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 5px solid;
+            transition: all 0.3s ease;
+        }
+        .signal-card:hover { transform: translateY(-5px); }
+        .buy-signal { border-left-color: #28a745; }
+        .sell-signal { border-left-color: #dc3545; }
+        .hold-signal { border-left-color: #ffc107; }
+        .signal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .signal-type { padding: 5px 15px; border-radius: 20px; font-weight: bold; font-size: 12px; }
+        .buy { background: #28a745; }
+        .sell { background: #dc3545; }
+        .hold { background: #ffc107; color: #000; }
+        .signal-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+        .detail-item { text-align: center; }
+        .detail-label { font-size: 12px; opacity: 0.8; }
+        .detail-value { font-size: 16px; font-weight: bold; margin-top: 5px; }
+        .filters { 
+            display: flex; 
+            gap: 15px; 
+            margin-bottom: 20px; 
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .filter-btn {
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            border-radius: 25px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .filter-btn.active { background: rgba(255,255,255,0.4); }
+        .refresh-btn {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        .confidence { 
+            display: flex; 
+            align-items: center; 
+            gap: 5px;
+        }
+        .confidence-bar {
+            width: 100px;
+            height: 8px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff4444, #ffaa00, #44ff44);
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Trading Signals</h1>
+            <p>Real-time copy trading signals with technical analysis</p>
+            <button class="refresh-btn" onclick="refreshSignals()">🔄 Refresh Signals</button>
+        </div>
+        
+        <div class="filters">
+            <button class="filter-btn active" onclick="filterSignals('all')">All Signals</button>
+            <button class="filter-btn" onclick="filterSignals('buy')">Buy Signals</button>
+            <button class="filter-btn" onclick="filterSignals('sell')">Sell Signals</button>
+            <button class="filter-btn" onclick="filterSignals('stocks')">Stocks</button>
+            <button class="filter-btn" onclick="filterSignals('forex')">Forex</button>
+        </div>
+        
+        <div id="signalsContainer">
+            <!-- Signals will be populated here -->
+        </div>
+    </div>
+
+    <script>
+        let allSignals = [];
+        let currentFilter = 'all';
+
+        function generateSignals() {
+            const symbols = {
+                stocks: ['AAPL', 'GOOGL', 'MSFT', 'TSLA', 'AMZN', 'NPN', 'SOL', 'ANG', 'MTM'],
+                forex: ['EUR/USD', 'GBP/USD', 'USD/JPY', 'AUD/USD', 'USD/CHF']
+            };
+            
+            const signals = [];
+            
+            // Generate stock signals
+            symbols.stocks.forEach(symbol => {
+                const signal = generateSignalForSymbol(symbol, 'stock');
+                if (signal) signals.push(signal);
+            });
+            
+            // Generate forex signals
+            symbols.forex.forEach(symbol => {
+                const signal = generateSignalForSymbol(symbol, 'forex');
+                if (signal) signals.push(signal);
+            });
+            
+            return signals.sort((a, b) => b.confidence - a.confidence);
+        }
+        
+        function generateSignalForSymbol(symbol, type) {
+            const signals = ['BUY', 'SELL', 'HOLD'];
+            const signal = signals[Math.floor(Math.random() * signals.length)];
+            
+            // Skip some HOLD signals to make it more realistic
+            if (signal === 'HOLD' && Math.random() > 0.3) return null;
+            
+            const confidence = Math.floor(Math.random() * 40) + 60; // 60-100%
+            const currentPrice = type === 'forex' ? 
+                (Math.random() * 2 + 0.5).toFixed(4) : 
+                (Math.random() * 200 + 50).toFixed(2);
+            
+            const targetPrice = signal === 'BUY' ? 
+                (parseFloat(currentPrice) * (1 + Math.random() * 0.1)).toFixed(type === 'forex' ? 4 : 2) :
+                (parseFloat(currentPrice) * (1 - Math.random() * 0.1)).toFixed(type === 'forex' ? 4 : 2);
+            
+            const stopLoss = signal === 'BUY' ?
+                (parseFloat(currentPrice) * (1 - Math.random() * 0.05)).toFixed(type === 'forex' ? 4 : 2) :
+                (parseFloat(currentPrice) * (1 + Math.random() * 0.05)).toFixed(type === 'forex' ? 4 : 2);
+            
+            const timeframe = ['1H', '4H', '1D', '1W'][Math.floor(Math.random() * 4)];
+            const indicators = [
+                'RSI Oversold', 'MACD Bullish Cross', 'Support Bounce', 'Breakout Pattern',
+                'Volume Spike', 'Moving Average Cross', 'Fibonacci Retracement', 'Trend Reversal'
+            ];
+            
+            return {
+                symbol,
+                type,
+                signal,
+                confidence,
+                currentPrice: type === 'forex' ? currentPrice : `$${currentPrice}`,
+                targetPrice: type === 'forex' ? targetPrice : `$${targetPrice}`,
+                stopLoss: type === 'forex' ? stopLoss : `$${stopLoss}`,
+                timeframe,
+                indicator: indicators[Math.floor(Math.random() * indicators.length)],
+                timestamp: new Date().toLocaleTimeString(),
+                riskReward: ((Math.abs(parseFloat(targetPrice) - parseFloat(currentPrice)) / 
+                            Math.abs(parseFloat(currentPrice) - parseFloat(stopLoss)))).toFixed(1)
+            };
+        }
+        
+        function renderSignals(signals) {
+            const container = document.getElementById('signalsContainer');
+            
+            if (signals.length === 0) {
+                container.innerHTML = '<div style="text-align: center; padding: 50px; opacity: 0.7;">No signals match the current filter</div>';
+                return;
+            }
+            
+            container.innerHTML = signals.map(signal => `
+                <div class="signal-card ${signal.signal.toLowerCase()}-signal" data-type="${signal.type}" data-signal="${signal.signal.toLowerCase()}">
+                    <div class="signal-header">
+                        <div>
+                            <h3>${signal.symbol}</h3>
+                            <small>${signal.type.toUpperCase()} • ${signal.timeframe} • ${signal.timestamp}</small>
+                        </div>
+                        <span class="signal-type ${signal.signal.toLowerCase()}">${signal.signal}</span>
+                    </div>
+                    
+                    <div class="signal-details">
+                        <div class="detail-item">
+                            <div class="detail-label">Current Price</div>
+                            <div class="detail-value">${signal.currentPrice}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Target Price</div>
+                            <div class="detail-value">${signal.targetPrice}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Stop Loss</div>
+                            <div class="detail-value">${signal.stopLoss}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Risk/Reward</div>
+                            <div class="detail-value">1:${signal.riskReward}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Indicator</div>
+                            <div class="detail-value">${signal.indicator}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Confidence</div>
+                            <div class="detail-value confidence">
+                                ${signal.confidence}%
+                                <div class="confidence-bar">
+                                    <div class="confidence-fill" style="width: ${signal.confidence}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 15px; text-align: center;">
+                        <button onclick="copySignal('${signal.symbol}', '${signal.signal}', '${signal.currentPrice}', '${signal.targetPrice}', '${signal.stopLoss}', '${signal.confidence}')" 
+                                style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; margin-right: 10px;">
+                            📋 Copy Signal
+                        </button>
+                        <button onclick="copyTradingView('${signal.symbol}', '${signal.signal}', '${signal.currentPrice}', '${signal.targetPrice}', '${signal.stopLoss}')" 
+                                style="padding: 10px 20px; background: #ff6b6b; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">
+                            📊 Copy for TradingView
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function filterSignals(filter) {
+            currentFilter = filter;
+            
+            // Update active filter button
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            let filteredSignals = allSignals;
+            
+            if (filter === 'buy') {
+                filteredSignals = allSignals.filter(s => s.signal === 'BUY');
+            } else if (filter === 'sell') {
+                filteredSignals = allSignals.filter(s => s.signal === 'SELL');
+            } else if (filter === 'stocks') {
+                filteredSignals = allSignals.filter(s => s.type === 'stock');
+            } else if (filter === 'forex') {
+                filteredSignals = allSignals.filter(s => s.type === 'forex');
+            }
+            
+            renderSignals(filteredSignals);
+        }
+        
+        function refreshSignals() {
+            allSignals = generateSignals();
+            filterSignals(currentFilter);
+        }
+        
+        function copySignal(symbol, signal, currentPrice, targetPrice, stopLoss, confidence) {
+            const signalText = `🚀 COPY TRADING SIGNAL
+
+📊 Symbol: ${symbol}
+🟢 Action: ${signal}
+💰 Entry: ${currentPrice}
+🎯 Target: ${targetPrice}
+🛑 Stop Loss: ${stopLoss}
+📈 Confidence: ${confidence}%
+
+⏰ Time: ${new Date().toLocaleString()}
+
+#CopyTrading #${symbol} #${signal}`;
+            
+            navigator.clipboard.writeText(signalText).then(() => {
+                showNotification('✅ Signal copied to clipboard!');
+            }).catch(() => {
+                showNotification('❌ Failed to copy signal');
+            });
+        }
+        
+        function copyTradingView(symbol, signal, currentPrice, targetPrice, stopLoss) {
+            const tvText = `${signal} ${symbol}
+Entry: ${currentPrice}
+Target: ${targetPrice}
+SL: ${stopLoss}
+Time: ${new Date().toLocaleTimeString()}`;
+            
+            navigator.clipboard.writeText(tvText).then(() => {
+                showNotification('✅ TradingView format copied!');
+            }).catch(() => {
+                showNotification('❌ Failed to copy');
+            });
+        }
+        
+        function showNotification(message) {
+            const notification = document.createElement('div');
+            notification.textContent = message;
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: rgba(0,0,0,0.8);
+                color: white;
+                padding: 15px 25px;
+                border-radius: 10px;
+                z-index: 10000;
+                font-weight: bold;
+                backdrop-filter: blur(10px);
+                animation: slideIn 0.3s ease;
+            `;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => notification.remove(), 300);
+            }, 2000);
+        }
+        
+        // Add CSS animations
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // Initialize
+        window.onload = function() {
+            refreshSignals();
+            
+            // Auto-refresh every 30 seconds
+            setInterval(refreshSignals, 30000);
+        };
+    </script>
+</body>
+</html>
