@@ -269,6 +269,7 @@
                 <select id="strategySelect" onchange="switchStrategy()" style="padding: 8px; border: none; border-radius: 5px; margin: 0 10px;">
                     <option value="ob_refined_strategy">Order Block Strategy</option>
                     <option value="fractal_refined_strategy">Fractal Strategy</option>
+                    <option value="fractal_ob_strategy">Fractal + OB Strategy</option>
                 </select>
             </div>
             <a href="/" class="nav-btn">🏠 Back to Main</a>
@@ -363,7 +364,8 @@
             const strategyName = document.getElementById('strategySelect').value;
             const titleMap = {
                 'ob_refined_strategy': '📊 Order Block Strategy Results',
-                'fractal_refined_strategy': '🔺 Fractal Strategy Results'
+                'fractal_refined_strategy': '🔺 Fractal Strategy Results',
+                'fractal_ob_strategy': '🔺📊 Fractal + OB Strategy Results'
             };
             document.getElementById('pageTitle').textContent = titleMap[strategyName] || '📊 Trading Strategy Results';
             loadBacktestResults();

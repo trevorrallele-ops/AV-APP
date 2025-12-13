@@ -71,6 +71,13 @@ def run_strategy_backtest(data, symbol_name, strategy_name="ob_refined_strategy"
             trades = strategy_module.execute_backtest(df, signals)
             summary = strategy_module.summarize_results(trades)
             
+        elif strategy_name == "fractal_ob_strategy":
+            import fractal_ob_strategy as strategy_module
+            df = convert_json_to_dataframe(data)
+            signals = strategy_module.detect_signals(df)
+            trades = strategy_module.execute_backtest(df, signals)
+            summary = strategy_module.summarize_results(trades)
+            
         else:
             raise ValueError(f"Unknown strategy: {strategy_name}")
         
@@ -122,6 +129,7 @@ def run_all_backtests(strategy_name="ob_refined_strategy"):
     return results
 
 if __name__ == "__main__":
-    # Run both strategies
+    # Run all strategies
     run_all_backtests("ob_refined_strategy")
     run_all_backtests("fractal_refined_strategy")
+    run_all_backtests("fractal_ob_strategy")
